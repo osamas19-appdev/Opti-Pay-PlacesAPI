@@ -19,12 +19,34 @@ class WalletController < ApplicationController
 
     require 'date'
     require 'json'
+    require "uri"
+    require "open-uri"
+    require "net/http"
+
+    #Get Place name from Google Places API
+    the_merchant_name = params.fetch("merchant_name")
+    google_places_api_key = ENV.fetch("PLACES_API_KEY")
+    places_url = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=#{the_merchant_name}&inputtype=textquery&key=#{google_places_api_key}"
+
+    raw_places_data = URI.open(places_url).read
+    parsed_places_data = JSON.parse(raw_places_data)
+    results_array = parsed_places_data.fetch("candidates")
+    first_result_hash = results_array.at(0)
+    returned_place_id = first_result_hash.fetch("place_id")
+
+
+    places_detail_url = "https://maps.googleapis.com/maps/api/place/details/json?place_id=#{returned_place_id}&key=#{google_places_api_key}"
+    raw_places_detail_data = URI.open(places_detail_url).read
+    parsed_places_detail_data = JSON.parse(raw_places_detail_data)
+    details_results = parsed_places_detail_data.fetch("result")
+    returned_place_name = details_results.fetch("name")
+    returned_place_address = details_results.fetch("formatted_address")
+    
 
     date_time = Time.now.strftime("%Y-%m-%dT%H:%M:%S")
     
     #Visa API to get MCC
-    the_merchant_name = params.fetch("merchant_name")
-    @merchant = the_merchant_name
+    @merchant = returned_place_name
     
     #Payload for API
     data = {
@@ -39,7 +61,7 @@ class WalletController < ApplicationController
         "messageDateTime": date_time
       },
       "searchAttrList": {
-        "merchantName": the_merchant_name,
+        "merchantName": returned_place_name,
         "merchantCountryCode": "840"
       },
       "responseAttrList": [
